@@ -150,11 +150,11 @@ typedef struct MenuItem MenuItem;
 struct MenuItem
 {
     char* label;
-    const char* name;
-    const char* hash;
+    char* name;
+    char* hash;
     s32 id;
     tic_screen* cover;
-    tic_palette* palettes;
+    tic_palette* palette;
 
     bool coverLoading;
     bool dir;
@@ -361,25 +361,25 @@ static void addMenuItemsDone(void* data)
     surf->loading = false;
 }
 
+static inline void safe_free(void* ptr)
+{
+    if(ptr) free(ptr);
+}
+
 static void resetMenu(Surf* surf)
 {
     if(surf->menu.items)
     {
         for(s32 i = 0; i < surf->menu.count; i++)
         {
-            free((void*)surf->menu.items[i].name);
+            MenuItem* item = &surf->menu.items[i];
 
-            const char* hash = surf->menu.items[i].hash;
-            if(hash) free((void*)hash);
+            free(item->name);
 
-            tic_screen* cover = surf->menu.items[i].cover;
-            if(cover) free(cover);
-
-            const char* label = surf->menu.items[i].label;
-            if(label) free((void*)label);
-
-            tic_palette* palettes = surf->menu.items[i].palettes;
-            if(palettes) free(palettes);
+            safe_free(item->hash);
+            safe_free(item->cover);
+            safe_free(item->label);
+            safe_free(item->palette);
         }
 
         free(surf->menu.items);
@@ -398,7 +398,7 @@ static void updateMenuItemCover(Surf* surf, s32 pos, const u8* cover, s32 size)
 
     if((item->cover = malloc(sizeof(tic_screen))))
     {
-        if((item->palettes = malloc(TIC80_HEIGHT * sizeof(tic_palette))))
+        if((item->palette = malloc(sizeof(tic_palette))))
         {
             gif_image* image = gif_read_data(cover, size);
 
@@ -406,48 +406,32 @@ static void updateMenuItemCover(Surf* surf, s32 pos, const u8* cover, s32 size)
             {
                 if (image->width == TIC80_WIDTH && image->height == TIC80_HEIGHT)
                 {
-                    for(s32 r = 0; r < TIC80_HEIGHT; r++)
+                    s32 size = image->width * image->height;
+                    u32* buffer = gif_quantize(size, image->buffer, image->palette, TIC_PALETTE_SIZE);
+
                     {
-                        tic_palette* palette = &item->palettes[r];
-                        s32 colorIndex = 0;
+                        void* gif = malloc(sizeof(gif_color) * TIC80_WIDTH * TIC80_HEIGHT);
+                        s32 outsize = 0;
+                        gif_write_animation(gif, &outsize, TIC80_WIDTH, TIC80_HEIGHT, (const u8*)buffer, 1, TIC80_FRAMERATE, 1);
+                        gif_image* cover = gif_read_data(gif, outsize);
 
-                        // init first color with default background
-                        palette->colors[0] = *getConfig()->cart->bank0.palette.scn.colors;
-
-                        for(s32 c = 0; c < TIC80_WIDTH; c++)
+                        for(s32 i = 0; i < size; i++)
                         {
-                            s32 pixel = r * TIC80_WIDTH + c;
-                            const gif_color* rgb = &image->palette[image->buffer[pixel]];
-
-                            s32 color = -1;
-                            for(s32 i = 0; i <= colorIndex; i++)
-                            {
-                                const tic_rgb* palColor = &palette->colors[i];
-                                if(palColor->r == rgb->r
-                                    && palColor->g == rgb->g
-                                    && palColor->b == rgb->b)
-                                {
-                                    color = i;
-                                    break;
-                                }
-                            }
-
-                            if(color < 0)
-                            {
-                                if(colorIndex < TIC_PALETTE_SIZE-1)
-                                {
-                                    tic_rgb* palColor = &palette->colors[color = ++colorIndex];
-
-                                    palColor->r = rgb->r;
-                                    palColor->g = rgb->g;
-                                    palColor->b = rgb->b;
-                                }
-                                else color = tic_tool_find_closest_color(palette->colors, rgb);
-                            }
-
-                            tic_tool_poke4(item->cover->data, pixel, color);
+                            tic_tool_poke4(item->cover->data, i, cover->buffer[i]);
                         }
+
+                        memcpy(item->palette, cover->palette, sizeof(tic_palette));
+
+                        free(gif);
+                        free(cover);
                     }
+
+                    free(buffer);
+                }
+                else
+                {
+                    memset(item->cover, 0, sizeof(tic_screen));
+                    memset(item->palette, 0, sizeof(tic_palette));
                 }
 
                 gif_close(image);
@@ -870,15 +854,20 @@ static void scanline(tic_mem* tic, s32 row, void* data)
 {
     Surf* surf = (Surf*)data;
 
-    drawBGAnimationScanline(tic, row);
-
     if(surf->menu.count > 0)
     {
         const MenuItem* item = &surf->menu.items[surf->menu.pos];
 
-        if(item->palettes)
-            memcpy(&tic->ram.vram.palette, item->palettes + row, sizeof(tic_palette));
+        if(item->palette)
+        {
+            if(row == 0)
+                memcpy(&tic->ram.vram.palette, item->palette, sizeof(tic_palette));
+
+            return;
+        }
     }
+
+    drawBGAnimationScanline(tic, row);
 }
 
 static void overline(tic_mem* tic, void* data)

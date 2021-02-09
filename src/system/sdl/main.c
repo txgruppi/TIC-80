@@ -1737,24 +1737,6 @@ static s32 emsStart(s32 argc, char **argv, const char* folder)
 
 s32 main(s32 argc, char **argv)
 {
-    {
-        s32 size = 0;
-        u8* gif = fs_read("in.gif", &size);     
-        gif_image* img = gif_read_data(gif, size);
-        u32* buffer = gif_quantize(TIC80_WIDTH, TIC80_HEIGHT, img->buffer, img->palette, TIC_PALETTE_SIZE);
-        free(gif);
-
-        {
-            void* gif = malloc(sizeof(gif_color) * TIC80_WIDTH * TIC80_HEIGHT);
-            s32 outsize = 0;
-            gif_write_animation(gif, &outsize, TIC80_WIDTH, TIC80_HEIGHT, (const u8*)buffer, 1, TIC80_FRAMERATE, 1);
-            fs_write("out.gif", gif, outsize);
-            free(gif);
-        }
-
-        free(buffer);
-    }
-
 #if defined(__TIC_WINDOWS__)
     {
         CONSOLE_SCREEN_BUFFER_INFO info;
