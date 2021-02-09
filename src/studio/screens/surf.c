@@ -37,6 +37,8 @@
 #define COVER_HEIGHT 116
 #define COVER_Y 5
 #define COVER_X (TIC80_WIDTH - COVER_WIDTH - COVER_Y)
+#define COVER_FADEIN 96
+#define COVER_FADEOUT 256
 
 #if defined(__TIC_WINDOWS__) || defined(__TIC_LINUX__) || defined(__TIC_MACOSX__)
 #define CAN_OPEN_URL 1
@@ -71,21 +73,21 @@ static struct
     s32 bottomBarY;
     s32 menuX;
     s32 menuHeight;
+    s32 coverFade;
 } AnimVar;
 
-static Anim topBarShowAnim = {0, MENU_HEIGHT, ANIM, &AnimVar.topBarY};
-static Anim bottomBarShowAnim = {0, MENU_HEIGHT, ANIM, &AnimVar.bottomBarY};
-
-static Anim topBarHideAnim = {MENU_HEIGHT, 0, ANIM, &AnimVar.topBarY};
-static Anim bottomBarHideAnim = {MENU_HEIGHT, 0, ANIM, &AnimVar.bottomBarY};
-
-static Anim menuLeftHideAnim = {0, -240, ANIM, &AnimVar.menuX};
-static Anim menuRightHideAnim = {0, 240, ANIM, &AnimVar.menuX};
-static Anim menuHideAnim = {MENU_HEIGHT, 0, ANIM, &AnimVar.menuHeight};
-
-static Anim menuLeftShowAnim = {240, 0, ANIM, &AnimVar.menuX};
-static Anim menuRightShowAnim = {-240, 0, ANIM, &AnimVar.menuX};
-static Anim menuShowAnim = {0, MENU_HEIGHT, ANIM, &AnimVar.menuHeight};
+static Anim topBarShowAnim      = {0, MENU_HEIGHT, ANIM, &AnimVar.topBarY};
+static Anim bottomBarShowAnim   = {0, MENU_HEIGHT, ANIM, &AnimVar.bottomBarY};
+static Anim topBarHideAnim      = {MENU_HEIGHT, 0, ANIM, &AnimVar.topBarY};
+static Anim bottomBarHideAnim   = {MENU_HEIGHT, 0, ANIM, &AnimVar.bottomBarY};
+static Anim menuLeftHideAnim    = {0, -TIC80_WIDTH, ANIM, &AnimVar.menuX};
+static Anim menuRightHideAnim   = {0, TIC80_WIDTH, ANIM, &AnimVar.menuX};
+static Anim menuHideAnim        = {MENU_HEIGHT, 0, ANIM, &AnimVar.menuHeight};
+static Anim menuLeftShowAnim    = {TIC80_WIDTH, 0, ANIM, &AnimVar.menuX};
+static Anim menuRightShowAnim   = {-TIC80_WIDTH, 0, ANIM, &AnimVar.menuX};
+static Anim menuShowAnim        = {0, MENU_HEIGHT, ANIM, &AnimVar.menuHeight};
+static Anim coverFadeInAnim     = {COVER_FADEOUT, COVER_FADEIN, ANIM, &AnimVar.coverFade};
+static Anim coverFadeOutAnim    = {COVER_FADEIN, COVER_FADEOUT, ANIM, &AnimVar.coverFade};
 
 static Anim* MenuModeShowMovieItems[] = 
 {
@@ -93,6 +95,7 @@ static Anim* MenuModeShowMovieItems[] =
     &bottomBarShowAnim,
     &menuRightShowAnim,
     &menuShowAnim,
+    &coverFadeInAnim,
 };
 
 static Anim* MenuModeHideMovieItems[] = 
@@ -101,6 +104,7 @@ static Anim* MenuModeHideMovieItems[] =
     &bottomBarHideAnim,
     &menuLeftHideAnim,
     &menuHideAnim,
+    &coverFadeOutAnim,
 };
 
 static Anim* MenuLeftHideMovieItems[] = 
@@ -154,6 +158,7 @@ struct MenuItem
     char* hash;
     s32 id;
     tic_screen* cover;
+
     tic_palette* palette;
 
     bool coverLoading;
@@ -396,47 +401,30 @@ static void updateMenuItemCover(Surf* surf, s32 pos, const u8* cover, s32 size)
 {
     MenuItem* item = &surf->menu.items[pos];
 
-    if((item->cover = malloc(sizeof(tic_screen))))
+    gif_image* image = gif_read_data(cover, size);
+
+    if(image)
     {
-        if((item->palette = malloc(sizeof(tic_palette))))
+        item->cover = malloc(sizeof(tic_screen));
+        item->palette = malloc(sizeof(tic_palette));
+
+        if (image->width == TIC80_WIDTH && image->height == TIC80_HEIGHT)
         {
-            gif_image* image = gif_read_data(cover, size);
+            s32 size = image->width * image->height;
+            u8* buffer = gif_quantize(size, image->buffer, image->palette, TIC_PALETTE_SIZE, (gif_color*)item->palette);
 
-            if(image)
-            {
-                if (image->width == TIC80_WIDTH && image->height == TIC80_HEIGHT)
-                {
-                    s32 size = image->width * image->height;
-                    u32* buffer = gif_quantize(size, image->buffer, image->palette, TIC_PALETTE_SIZE);
+            for(s32 i = 0; i < size; i++)
+                tic_tool_poke4(item->cover->data, i, buffer[i]);
 
-                    {
-                        void* gif = malloc(sizeof(gif_color) * TIC80_WIDTH * TIC80_HEIGHT);
-                        s32 outsize = 0;
-                        gif_write_animation(gif, &outsize, TIC80_WIDTH, TIC80_HEIGHT, (const u8*)buffer, 1, TIC80_FRAMERATE, 1);
-                        gif_image* cover = gif_read_data(gif, outsize);
-
-                        for(s32 i = 0; i < size; i++)
-                        {
-                            tic_tool_poke4(item->cover->data, i, cover->buffer[i]);
-                        }
-
-                        memcpy(item->palette, cover->palette, sizeof(tic_palette));
-
-                        free(gif);
-                        free(cover);
-                    }
-
-                    free(buffer);
-                }
-                else
-                {
-                    memset(item->cover, 0, sizeof(tic_screen));
-                    memset(item->palette, 0, sizeof(tic_palette));
-                }
-
-                gif_close(image);
-            }           
+            free(buffer);
         }
+        else
+        {
+            memset(item->cover, 0, sizeof(tic_screen));
+            memset(item->palette, 0, sizeof(tic_palette));
+        }
+
+        gif_close(image);
     }
 }
 
@@ -861,7 +849,11 @@ static void scanline(tic_mem* tic, s32 row, void* data)
         if(item->palette)
         {
             if(row == 0)
+            {
                 memcpy(&tic->ram.vram.palette, item->palette, sizeof(tic_palette));
+                for(u8 *i = tic->ram.vram.palette.data, *end = i + sizeof(tic_palette); i < end; i++)
+                    *i = *i * AnimVar.coverFade >> 8;
+            }
 
             return;
         }

@@ -375,7 +375,7 @@ static void Mark(cube, label, tag)
                 tag[(r<<10) + (r<<6) + r + (g<<5) + g + b] = label;
 }
 
-u32* gif_quantize(s32 size, const u8* buffer, const gif_color* palette, s32 colors)
+u8* gif_quantize(s32 size, const u8* buffer, const gif_color* palette, s32 colors, gif_color* outpal)
 {
     static struct
     {
@@ -399,7 +399,7 @@ u32* gif_quantize(s32 size, const u8* buffer, const gif_color* palette, s32 colo
         Ib[i] = palette[buffer[i]].b;
     }
 
-    u16 *Qadd = (u16*)malloc(sizeof(s16) * size);
+    u16 *Qadd = malloc(sizeof(s16) * size);
 
     Hist3d(vars.wt, vars.mr, vars.mg, vars.mb, vars.m2, Ir, Ig, Ib, size, Qadd);
     free(Ig); free(Ib); free(Ir);
@@ -446,36 +446,29 @@ u32* gif_quantize(s32 size, const u8* buffer, const gif_color* palette, s32 colo
         }
     }
 
-    static u8 lut_r[MAXCOLOR], lut_g[MAXCOLOR], lut_b[MAXCOLOR];
     static u8 tag[CUBE_SIZE];
 
     for(s32 k = 0; k < colors; ++k)
     {
         Mark(&cube[k], k, tag);
         s32 weight = Vol(&cube[k], vars.wt);
+
         if (weight) 
         {
-            lut_r[k] = Vol(&cube[k], vars.mr) / weight;
-            lut_g[k] = Vol(&cube[k], vars.mg) / weight;
-            lut_b[k] = Vol(&cube[k], vars.mb) / weight;
+            outpal[k].r = Vol(&cube[k], vars.mr) / weight;
+            outpal[k].g = Vol(&cube[k], vars.mg) / weight;
+            outpal[k].b = Vol(&cube[k], vars.mb) / weight;
         }
-        else
-        {
-            lut_r[k] = lut_g[k] = lut_b[k] = 0;       
-        }
+        else ZEROMEM(outpal[k]);
     }
 
-    for(s32 i = 0; i < size; ++i)
-        Qadd[i] = tag[Qadd[i]];
     /* output lut_r, lut_g, lut_b as color look-up table contents,
        Qadd as the quantized image (array of table addresses). */
 
-    u32* result = malloc(sizeof(u32) * size);
+    u8* result = malloc(sizeof(u8) * size);
+
     for(s32 i = 0; i < size; i++)
-    {
-        s32 index = Qadd[i];
-        result[i] = (lut_b[index] << 16) + (lut_g[index] << 8) + (lut_r[index] << 0);
-    }
+        result[i] = tag[Qadd[i]];
 
     free(Qadd);
 
