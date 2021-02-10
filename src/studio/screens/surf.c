@@ -142,12 +142,12 @@ static Movie MenuModeState;
     .next = & NEXT ## State,                                    \
 }
 
-DECLARE_MOVIE(MenuModeShow, MenuMode);
-DECLARE_MOVIE(MenuModeHide, Empty);
-DECLARE_MOVIE(MenuLeftShow,  MenuMode);
-DECLARE_MOVIE(MenuRightShow, MenuMode);
-DECLARE_MOVIE(MenuLeftHide, MenuLeftShow);
-DECLARE_MOVIE(MenuRightHide, MenuRightShow);
+DECLARE_MOVIE(MenuModeShow,     MenuMode);
+DECLARE_MOVIE(MenuModeHide,     Empty);
+DECLARE_MOVIE(MenuLeftShow,     MenuMode);
+DECLARE_MOVIE(MenuRightShow,    MenuMode);
+DECLARE_MOVIE(MenuLeftHide,     MenuLeftShow);
+DECLARE_MOVIE(MenuRightHide,    MenuRightShow);
 
 typedef struct MenuItem MenuItem;
 
@@ -410,10 +410,10 @@ static void updateMenuItemCover(Surf* surf, s32 pos, const u8* cover, s32 size)
 
         if (image->width == TIC80_WIDTH && image->height == TIC80_HEIGHT)
         {
-            s32 size = image->width * image->height;
-            u8* buffer = gif_quantize(size, image->buffer, image->palette, TIC_PALETTE_SIZE, (gif_color*)item->palette);
+            enum{Size = TIC80_WIDTH * TIC80_HEIGHT};
+            u8* buffer = gif_quantize(image->buffer, Size, image->palette, (gif_color*)item->palette, TIC_PALETTE_SIZE);
 
-            for(s32 i = 0; i < size; i++)
+            for(s32 i = 0; i < Size; i++)
                 tic_tool_poke4(item->cover->data, i, buffer[i]);
 
             free(buffer);
@@ -486,6 +486,15 @@ static void requestCover(Surf* surf, MenuItem* item)
     tic_net_get(surf->net, path, coverLoaded, OBJCOPY(coverLoadingData));
 }
 
+static bool emptyCover(const tic_cover* cover)
+{
+    for(const u8 *i = cover->palette.data, *end = i + sizeof(tic_palette); i < end; i++)
+        if(*i)
+            return false;
+
+    return true;
+}
+
 static void loadCover(Surf* surf)
 {
     tic_mem* tic = surf->tic;
@@ -515,8 +524,14 @@ static void loadCover(Surf* surf)
                 else
                     tic_cart_load(cart, data, size);
 
-                if(cart->cover.size)
-                    updateMenuItemCover(surf, surf->menu.pos, cart->cover.data, cart->cover.size);
+                if(!emptyCover(&cart->cover))
+                {
+                    item->cover = malloc(sizeof(tic_screen));
+                    item->palette = malloc(sizeof(tic_palette));
+
+                    memcpy(item->cover, &cart->cover.screen, sizeof(tic_screen));
+                    memcpy(item->palette, &cart->cover.palette, sizeof(tic_palette));
+                }
 
                 free(cart);
             }

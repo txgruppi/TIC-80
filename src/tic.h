@@ -376,12 +376,6 @@ typedef union
     } banks[TIC_BANKS];
 } tic_code;
 
-typedef struct 
-{
-    s32 size;
-    u8 data [TIC80_WIDTH * TIC80_HEIGHT * sizeof(u32)];
-} tic_cover_image;
-
 typedef struct
 {
     u8 r;
@@ -426,6 +420,17 @@ typedef struct
 
 typedef struct
 {
+    u8 data[TIC80_WIDTH * TIC80_HEIGHT * TIC_PALETTE_BPP / BITS_IN_BYTE];
+} tic_screen;
+
+typedef struct
+{
+    tic_screen screen;
+    tic_palette palette;
+} tic_cover;
+
+typedef struct
+{
     union
     {
         tic_bank bank0;
@@ -433,18 +438,14 @@ typedef struct
     };
 
     tic_code code;
-    tic_cover_image cover;
+    tic_cover cover;
+
 } tic_cartridge;
 
 typedef struct
 {
     u8 data[TIC_FONT_CHARS * BITS_IN_BYTE];
 } tic_font;
-
-typedef struct
-{
-    u8 data[TIC80_WIDTH * TIC80_HEIGHT * TIC_PALETTE_BPP / BITS_IN_BYTE];
-} tic_screen;
 
 typedef union
 {

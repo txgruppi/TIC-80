@@ -428,33 +428,6 @@ void tic_api_reset(tic_mem* memory)
     updateSaveid(memory);
 }
 
-static void initCover(tic_mem* tic)
-{
-    const tic_cover_image* cover = &tic->cart.cover;
-
-    if (cover->size)
-    {
-        gif_image* image = gif_read_data(cover->data, cover->size);
-
-        if (image)
-        {
-            if (image->width == TIC80_WIDTH && image->height == TIC80_HEIGHT)
-            {
-                enum { Size = TIC80_WIDTH * TIC80_HEIGHT };
-
-                for (s32 i = 0; i < Size; i++)
-                {
-                    const gif_color* c = &image->palette[image->buffer[i]];
-                    u8 color = tic_tool_find_closest_color(tic->cart.bank0.palette.scn.colors, c);
-                    tic_tool_poke4(tic->ram.vram.screen.data, i, color);
-                }
-            }
-
-            gif_close(image);
-        }
-    }
-}
-
 static void cart2ram(tic_mem* memory)
 {
     static const u8 Font[] =
@@ -463,9 +436,9 @@ static void cart2ram(tic_mem* memory)
     };
 
     memcpy(memory->ram.font.data, Font, sizeof Font);
+    memcpy(&memory->ram.vram.screen, &memory->cart.cover.screen, sizeof(tic_screen));
 
     tic_api_sync(memory, 0, 0, false);
-    initCover(memory);
 }
 
 void tic_core_tick(tic_mem* tic, tic_tick_data* data)

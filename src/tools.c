@@ -66,33 +66,6 @@ bool tic_tool_parse_note(const char* noteStr, s32* note, s32* octave)
     return false;
 }
 
-u32 tic_tool_find_closest_color(const tic_rgb* palette, const gif_color* color)
-{
-    u32 minDst = -1;
-    u32 closetColor = 0;
-
-    enum{Size = TIC_PALETTE_SIZE};
-    
-    for (s32 i = 0; i < Size; i++)
-    {
-        const tic_rgb* rgb = palette + i;
-
-        s32 r = color->r - rgb->r;
-        s32 g = color->g - rgb->g;
-        s32 b = color->b - rgb->b;
-
-        u32 dst = r*r + g*g + b*b;
-
-        if (dst < minDst)
-        {
-            minDst = dst;
-            closetColor = i;
-        }
-    }
-
-    return closetColor;
-}
-
 u32* tic_tool_palette_blit(const tic_palette* srcpal, tic80_pixel_color_format fmt)
 {
     static u32 pal[TIC_PALETTE_SIZE];

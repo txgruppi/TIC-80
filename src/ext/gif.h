@@ -48,4 +48,5 @@ bool gif_write_data(const void* buffer, s32* size, s32 width, s32 height, const 
 bool gif_write_animation(const void* buffer, s32* size, s32 width, s32 height, const u8* data, s32 frames, s32 fps, s32 scale);
 void gif_close(gif_image* image);
 
-u8* gif_quantize(s32 size, const u8* buffer, const gif_color* palette, s32 colors, gif_color* outpal);
+u8* gif_quantize(const u8* buffer, s32 size, const gif_color* palette, gif_color* outpal, s32 colors);
+u8* gif_quantize2(const u32* buffer, s32 size, gif_color* outpal, s32 colors);

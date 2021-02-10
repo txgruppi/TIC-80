@@ -1434,8 +1434,14 @@ static void setCoverImage()
 
             screen2buffer(buffer, tic->screen, &rect);
 
-            gif_write_animation(impl.studio.tic->cart.cover.data, &impl.studio.tic->cart.cover.size,
-                TIC80_WIDTH, TIC80_HEIGHT, (const u8*)buffer, 1, TIC80_FRAMERATE, 1);
+            {
+                enum{Size = TIC80_WIDTH * TIC80_HEIGHT};
+                tic_cartridge* cart = &impl.studio.tic->cart;
+                u8* cover = gif_quantize2(buffer, Size, (gif_color*)cart->cover.palette.colors, TIC_PALETTE_SIZE);
+
+                for(s32 i = 0; i < Size; i++)
+                    tic_tool_poke4(cart->cover.screen.data, i, cover[i]);
+            }
 
             free(buffer);
 

@@ -375,7 +375,7 @@ static void Mark(cube, label, tag)
                 tag[(r<<10) + (r<<6) + r + (g<<5) + g + b] = label;
 }
 
-u8* gif_quantize(s32 size, const u8* buffer, const gif_color* palette, s32 colors, gif_color* outpal)
+u8* gif_quantize2(const u32* buffer, s32 size, gif_color* outpal, s32 colors)
 {
     static struct
     {
@@ -394,9 +394,9 @@ u8* gif_quantize(s32 size, const u8* buffer, const gif_color* palette, s32 color
 
     for(s32 i = 0; i < size; i++)
     {
-        Ir[i] = palette[buffer[i]].r;
-        Ig[i] = palette[buffer[i]].g;
-        Ib[i] = palette[buffer[i]].b;
+        Ir[i] = (buffer[i] & 0x0000ff) >> 0;
+        Ig[i] = (buffer[i] & 0x00ff00) >> 8;
+        Ib[i] = (buffer[i] & 0xff0000) >> 16;
     }
 
     u16 *Qadd = malloc(sizeof(s16) * size);
@@ -473,4 +473,18 @@ u8* gif_quantize(s32 size, const u8* buffer, const gif_color* palette, s32 color
     free(Qadd);
 
     return result;
+}
+
+u8* gif_quantize(const u8* buffer, s32 size, const gif_color* palette, gif_color* outpal, s32 colors)
+{
+    u32* data = malloc(size * sizeof(u32));
+
+    for(s32 i = 0; i < size; i++)
+        data[i] = palette[buffer[i]].r | (palette[buffer[i]].g << 8) | (palette[buffer[i]].b << 16);
+
+    u8* res = gif_quantize2(data, size, outpal, colors);
+
+    free(data);
+
+    return res;
 }

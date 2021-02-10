@@ -135,6 +135,15 @@ static const char* projectComment(const char* name)
     return comment;
 }
 
+static bool emptyCover(const tic_cover* cover)
+{
+    for(const u8 *i = cover->palette.data, *end = i + sizeof(tic_palette); i < end; i++)
+        if(*i)
+            return false;
+
+    return true;
+}
+
 s32 tic_project_save(const char* name, void* data, const tic_cartridge* cart)
 {
 	const char* comment = projectComment(name);
@@ -155,7 +164,8 @@ s32 tic_project_save(const char* name, void* data, const tic_cartridge* cart)
         }
     }
 
-    saveBinarySection(ptr, comment, "COVER", 1, &cart->cover, cart->cover.size + sizeof(s32), true);
+    if(!emptyCover(&cart->cover))
+        saveBinarySection(ptr, comment, "COVER", 1, &cart->cover, sizeof(tic_cover) + sizeof(s32), true);
 
     return (s32)strlen(stream);
 }
