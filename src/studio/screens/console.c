@@ -353,19 +353,9 @@ static void onConsoleExitCommand(Console* console, const char* param)
 static s32 writeGifData(const tic_mem* tic, u8* dst, const u8* src, s32 width, s32 height)
 {
     s32 size = 0;
-    gif_color* palette = (gif_color*)malloc(sizeof(gif_color) * TIC_PALETTE_SIZE);
 
-    if(palette)
-    {
-        const tic_rgb* pal = getBankPalette(false)->colors;
-        for(s32 i = 0; i < TIC_PALETTE_SIZE; i++, pal++)
-            palette[i].r = pal->r, palette[i].g = pal->g, palette[i].b = pal->b;
-
-        gif_write_data(dst, &size, width, height, src, palette, TIC_PALETTE_BPP);
-
-        free(palette);
-    }
-
+    const tic_rgb* pal = getBankPalette(false)->colors;
+    gif_write_data(dst, &size, width, height, src, (gif_color*)pal, TIC_PALETTE_BPP);
     return size;
 }
 
@@ -385,12 +375,13 @@ static bool onConsoleLoadSectionCommand(Console* console, const char* param)
     {
         static const char* Sections[] =
         {
+            "tiles",
             "sprites",
             "map",
-            "code",
             "sfx",
             "music",
             "palette",
+            "code",
         };
 
         char buf[64];
@@ -418,12 +409,13 @@ static bool onConsoleLoadSectionCommand(Console* console, const char* param)
 
                         switch(i)
                         {
-                        case 0: memcpy(&tic->cart.bank0.tiles,      &cart->bank0.tiles,     sizeof(tic_tiles)*2); break;
-                        case 1: memcpy(&tic->cart.bank0.map,        &cart->bank0.map,       sizeof(tic_map)); break;
-                        case 2: memcpy(&tic->cart.code,             &cart->code,            sizeof(tic_code)); break;
-                        case 3: memcpy(&tic->cart.bank0.sfx,        &cart->bank0.sfx,       sizeof(tic_sfx)); break;
-                        case 4: memcpy(&tic->cart.bank0.music,      &cart->bank0.music,     sizeof(tic_music)); break;
-                        case 5: memcpy(&tic->cart.bank0.palette,    &cart->bank0.palette,   sizeof(tic_palette)); break;
+                        case 0: memcpy(&tic->cart.bank0.tiles,      &cart->bank0.tiles,     sizeof(tic_tiles));     break;
+                        case 1: memcpy(&tic->cart.bank0.sprites,    &cart->bank0.sprites,   sizeof(tic_tiles));     break;
+                        case 2: memcpy(&tic->cart.bank0.map,        &cart->bank0.map,       sizeof(tic_map));       break;
+                        case 3: memcpy(&tic->cart.bank0.sfx,        &cart->bank0.sfx,       sizeof(tic_sfx));       break;
+                        case 4: memcpy(&tic->cart.bank0.music,      &cart->bank0.music,     sizeof(tic_music));     break;
+                        case 5: memcpy(&tic->cart.bank0.palette,    &cart->bank0.palette,   sizeof(tic_palette));   break;
+                        case 6: memcpy(&tic->cart.code,             &cart->code,            sizeof(tic_code));      break;
                         }
 
                         studioRomLoaded();
@@ -1344,14 +1336,13 @@ static void onConsoleConfigCommand(Console* console, const char* param)
     commandDone(console);
 }
 
-static void onImportCover(const char* name, const void* buffer, s32 size, void* data)
+static void onImportSprites(const char* name, const void* buffer, s32 size, void* data, tic_tile* base)
 {
     Console* console = (Console*)data;
 
     if(name)
     {
         static const char GifExt[] = ".gif";
-
         const char* pos = strstr(name, GifExt);
 
         if(pos && strcmp(pos, GifExt) == 0)
@@ -1360,66 +1351,13 @@ static void onImportCover(const char* name, const void* buffer, s32 size, void* 
 
             if (image)
             {
-                enum
+                if(image->width == TIC_SPRITESHEET_SIZE && image->height == TIC_SPRITESHEET_SIZE)
                 {
-                    Width = TIC80_WIDTH,
-                    Height = TIC80_HEIGHT,
-                    Size = Width * Height,
-                };
-
-                if(image->width == Width && image->height == Height)
-                {
-                    tic_cover* cover = &console->tic->cart.cover;
-
-                    u8* buffer = gif_quantize(image->buffer, Size, image->palette, (gif_color*)&cover->palette, TIC_PALETTE_SIZE);
-
-                    for(s32 i = 0; i < Size; i++)
-                        tic_tool_poke4(cover->screen.data, i, buffer[i]);
-
-                    free(buffer);
-
-                    printLine(console);
-                    printBack(console, name);
-                    printBack(console, " successfully imported");
-                }
-                else printError(console, "\ncover image must be 240x136 :(");
-
-                gif_close(image);
-            }
-            else printError(console, "\nfile importing error :(");
-        }
-        else printBack(console, "\nonly .gif files can be imported :|");
-    }
-    else printBack(console, "\nfile not imported :|");
-
-    commandDone(console);
-}
-
-static void onImportSprites(const char* name, const void* buffer, s32 size, void* data)
-{
-    Console* console = (Console*)data;
-
-    if(name)
-    {
-        static const char GifExt[] = ".gif";
-
-        const char* pos = strstr(name, GifExt);
-
-        if(pos && strcmp(pos, GifExt) == 0)
-        {
-            gif_image* image = gif_read_data(buffer, (s32)size);
-
-            if (image)
-            {
-                if(image->width == TIC_SPRITESHEET_SIZE && image->height == TIC_SPRITESHEET_SIZE * 2)
-                {
-                    enum{Size = TIC_SPRITESHEET_SIZE * TIC_SPRITESHEET_SIZE*2};
-                    tic_palette palette;
-                    u8* buffer = gif_quantize(image->buffer, Size, image->palette, (gif_color*)&palette, TIC_PALETTE_SIZE);
-
-                    // !TODO: find color in the `palette`
-                    for(s32 i = 0; i < Size; i++)
-                        tic_tool_poke4(getBankTiles()->data, i, buffer[i]);
+                    tic_rgb* pal = getBankPalette(false)->colors;
+                    for (s32 i = 0; i < TIC_SPRITESHEET_SIZE * TIC_SPRITESHEET_SIZE; i++)
+                        for (s32 c = 0; c < TIC_PALETTE_SIZE; c++)
+                            if (memcmp(&pal[c], &image->palette[image->buffer[i]], sizeof(gif_color)) == 0)
+                                setSpritePixel(base, i % TIC_SPRITESHEET_SIZE, i / TIC_SPRITESHEET_SIZE, c);
                 }
 
                 gif_close(image);
@@ -1502,14 +1440,14 @@ static void onConsoleImportCommand(Console* console, const char* param)
 
         if(data)
         {
-            if(strcmp(param, "sprites") == 0)
+            if(strcmp(param, "tiles") == 0)
             {
-                onImportSprites(filename, data, size, console);
+                onImportSprites(filename, data, size, console, getBankTiles()->data);
                 error = false;
             }
-            else if(strcmp(param, "cover") == 0)
+            if (strcmp(param, "sprites") == 0)
             {
-                onImportCover(filename, data, size, console);
+                onImportSprites(filename, data, size, console, getBankTiles()->data + TIC_BANK_SPRITES);
                 error = false;
             }
             else if(strcmp(param, "map") == 0)
@@ -1535,59 +1473,9 @@ static void onConsoleImportCommand(Console* console, const char* param)
 
     if(error)
     {
-        printBack(console, "\nusage: import (sprites cover map) file");
+        printBack(console, "\nusage: import (tiles sprites map) file");
         commandDone(console);
     }
-}
-
-static bool emptyCover(const tic_cover* cover)
-{
-    for(const u8 *i = cover->palette.data, *end = i + sizeof(tic_palette); i < end; i++)
-        if(*i)
-            return false;
-
-    return true;
-}
-
-#define _RGB(r, g, b) (((b) << 16) | ((g) << 8) | ((r) << 0))
-
-static void exportCover(Console* console, const char* filename)
-{
-    tic_cover* cover = &console->tic->cart.cover;
-
-    if(!emptyCover(cover))
-    {
-        enum{Size = TIC80_WIDTH * TIC80_HEIGHT};
-
-        u32* data = malloc(Size * sizeof(u32));
-
-        for(s32 i = 0; i < Size; i++)
-        {
-            s32 index = tic_tool_peek4(cover->screen.data, i);
-            const tic_rgb* c = &cover->palette.colors[index];
-            data[i] = _RGB(c->r, c->g, c->b);
-        }
-
-        s32 size = 0;
-        u8* gif = malloc(Size * sizeof(u32));
-
-        gif_write_animation(gif, &size, TIC80_WIDTH, TIC80_HEIGHT, (const u8*)data, 1, TIC80_FRAMERATE, 1);
-
-        if(tic_fs_save(console->fs, filename, gif, size, true))
-        {
-            printLine(console);
-            printBack(console, filename);
-            printBack(console, " exported :)");
-        }
-        else printError(console, "\nerror: cover not exported :(");
-
-        free(data);
-        free(gif);
-
-    }
-    else printBack(console, "\ncover image is empty, run game and\npress [F7] to assign cover image");
-
-    commandDone(console);
 }
 
 static void exportSfx(Console* console, s32 sfx, const char* filename)
@@ -1627,12 +1515,12 @@ static void exportMusic(Console* console, s32 track, const char* filename)
     }
 }
 
-static void exportSprites(Console* console, const char* filename)
+static void exportSprites(Console* console, const char* filename, tic_tile* base)
 {
     enum
     {
         Width = TIC_SPRITESHEET_SIZE,
-        Height = TIC_SPRITESHEET_SIZE*2,
+        Height = TIC_SPRITESHEET_SIZE,
     };
 
     enum{ Size = Width * Height * sizeof(gif_color)};
@@ -1646,7 +1534,7 @@ static void exportSprites(Console* console, const char* filename)
         {
             for (s32 y = 0; y < Height; y++)
                 for (s32 x = 0; x < Width; x++)
-                    data[x + y * Width] = getSpritePixel(getBankTiles()->data, x, y);
+                    data[x + y * Width] = getSpritePixel(base, x, y);
 
             s32 size = 0;
             if((size = writeGifData(console->tic, buffer, data, Width, Height)) 
@@ -1970,12 +1858,12 @@ static void onConsoleExportCommand(Console* console, const char* param)
     {
         if(strcmp(param, "html") == 0)
             exportGame(console, getFilename(filename, ".zip"), param, onHtmlExportGet);
-        else if(strcmp(param, "sprites") == 0)
-            exportSprites(console, getFilename(filename, ".gif"));
+        else if(strcmp(param, "tiles") == 0)
+            exportSprites(console, getFilename(filename, ".gif"), getBankTiles()->data);
+        else if (strcmp(param, "sprites") == 0)
+            exportSprites(console, getFilename(filename, ".gif"), getBankTiles()->data + TIC_BANK_SPRITES);
         else if(strcmp(param, "map") == 0)
             exportMap(console, getFilename(filename, ".map"));
-        else if(strcmp(param, "cover") == 0)
-            exportCover(console, getFilename(filename, ".gif"));
         else if(strncmp(param, "sfx", SfxIndex) == 0)
             exportSfx(console, atoi(param + SfxIndex) % SFX_COUNT, getFilename(filename, ".wav"));
         else if(strncmp(param, "music", MusicIndex) == 0)
@@ -1998,7 +1886,7 @@ static void onConsoleExportCommand(Console* console, const char* param)
     else
     {
         printBack(console, "\nusage: export (");
-        printFront(console, "win linux rpi mac html sprites map cover sfx<#> music<#>");
+        printFront(console, "win linux rpi mac html sprites map sfx<#> music<#>");
         printBack(console, ") file\n");
         commandDone(console);
     }

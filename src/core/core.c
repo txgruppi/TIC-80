@@ -180,6 +180,7 @@ void tic_api_sync(tic_mem* tic, u32 mask, s32 bank, bool toCart)
         {offsetof(tic_bank, music),         offsetof(tic_ram, music),           sizeof(tic_music)   },
         {offsetof(tic_bank, palette.scn),   offsetof(tic_ram, vram.palette),    sizeof(tic_palette) },
         {offsetof(tic_bank, flags),         offsetof(tic_ram, flags),           sizeof(tic_flags)   },
+        {offsetof(tic_bank, screen),        offsetof(tic_ram, vram.screen),     sizeof(tic_screen)  },
     };
 
     enum { Count = COUNT_OF(Sections), Mask = (1 << Count) - 1 };
@@ -436,7 +437,6 @@ static void cart2ram(tic_mem* memory)
     };
 
     memcpy(memory->ram.font.data, Font, sizeof Font);
-    memcpy(&memory->ram.vram.screen, &memory->cart.cover.screen, sizeof(tic_screen));
 
     tic_api_sync(memory, 0, 0, false);
 }

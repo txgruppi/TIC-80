@@ -397,6 +397,8 @@ static void resetMenu(Surf* surf)
     surf->menu.anim = 0;
 }
 
+u8* quantize(const u8* buffer, s32 size, const gif_color* palette, gif_color* outpal, s32 colors);
+
 static void updateMenuItemCover(Surf* surf, s32 pos, const u8* cover, s32 size)
 {
     MenuItem* item = &surf->menu.items[pos];
@@ -411,7 +413,7 @@ static void updateMenuItemCover(Surf* surf, s32 pos, const u8* cover, s32 size)
         if (image->width == TIC80_WIDTH && image->height == TIC80_HEIGHT)
         {
             enum{Size = TIC80_WIDTH * TIC80_HEIGHT};
-            u8* buffer = gif_quantize(image->buffer, Size, image->palette, (gif_color*)item->palette, TIC_PALETTE_SIZE);
+            u8* buffer = quantize(image->buffer, Size, image->palette, (gif_color*)item->palette, TIC_PALETTE_SIZE);
 
             for(s32 i = 0; i < Size; i++)
                 tic_tool_poke4(item->cover->data, i, buffer[i]);
@@ -486,15 +488,6 @@ static void requestCover(Surf* surf, MenuItem* item)
     tic_net_get(surf->net, path, coverLoaded, OBJCOPY(coverLoadingData));
 }
 
-static bool emptyCover(const tic_cover* cover)
-{
-    for(const u8 *i = cover->palette.data, *end = i + sizeof(tic_palette); i < end; i++)
-        if(*i)
-            return false;
-
-    return true;
-}
-
 static void loadCover(Surf* surf)
 {
     tic_mem* tic = surf->tic;
@@ -523,15 +516,6 @@ static void loadCover(Surf* surf)
                     tic_project_load(item->name, data, size, cart);
                 else
                     tic_cart_load(cart, data, size);
-
-                if(!emptyCover(&cart->cover))
-                {
-                    item->cover = malloc(sizeof(tic_screen));
-                    item->palette = malloc(sizeof(tic_palette));
-
-                    memcpy(item->cover, &cart->cover.screen, sizeof(tic_screen));
-                    memcpy(item->palette, &cart->cover.palette, sizeof(tic_palette));
-                }
 
                 free(cart);
             }

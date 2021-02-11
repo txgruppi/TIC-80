@@ -375,7 +375,7 @@ static void Mark(cube, label, tag)
                 tag[(r<<10) + (r<<6) + r + (g<<5) + g + b] = label;
 }
 
-u8* gif_quantize2(const u32* buffer, s32 size, gif_color* outpal, s32 colors)
+u8* quantize(const u8* buffer, s32 size, const gif_color* palette, gif_color* outpal, s32 colors)
 {
     static struct
     {
@@ -392,14 +392,14 @@ u8* gif_quantize2(const u32* buffer, s32 size, gif_color* outpal, s32 colors)
     u8* Ig = malloc(sizeof(u8) * size);
     u8* Ib = malloc(sizeof(u8) * size);
 
-    for(s32 i = 0; i < size; i++)
+    for (s32 i = 0; i < size; i++)
     {
-        Ir[i] = (buffer[i] & 0x0000ff) >> 0;
-        Ig[i] = (buffer[i] & 0x00ff00) >> 8;
-        Ib[i] = (buffer[i] & 0xff0000) >> 16;
+        Ir[i] = palette[buffer[i]].r;
+        Ig[i] = palette[buffer[i]].g;
+        Ib[i] = palette[buffer[i]].b;
     }
 
-    u16 *Qadd = malloc(sizeof(s16) * size);
+    u16* Qadd = malloc(sizeof(s16) * size);
 
     Hist3d(vars.wt, vars.mr, vars.mg, vars.mb, vars.m2, Ir, Ig, Ib, size, Qadd);
     free(Ig); free(Ib); free(Ir);
@@ -411,11 +411,11 @@ u8* gif_quantize2(const u32* buffer, s32 size, gif_color* outpal, s32 colors)
     cube[0].r1 = cube[0].g1 = cube[0].b1 = 32;
     s32 next = 0;
 
-    for(s32 i = 1; i < colors; ++i)
+    for (s32 i = 1; i < colors; ++i)
     {
         static float vv[MAXCOLOR];
 
-        if (Cut(&cube[next], &cube[i], vars.wt, vars.mr, vars.mg, vars.mb)) 
+        if (Cut(&cube[next], &cube[i], vars.wt, vars.mr, vars.mg, vars.mb))
         {
             /* volume test ensures we won't try to cut one-cell box */
             vv[next] = (cube[next].vol > 1) ? Var(&cube[next], vars.m2, vars.wt, vars.mr, vars.mg, vars.mb) : 0.0;
@@ -427,33 +427,33 @@ u8* gif_quantize2(const u32* buffer, s32 size, gif_color* outpal, s32 colors)
             i--;              /* didn't create box i */
         }
 
-        next = 0; 
+        next = 0;
         float temp = vv[0];
 
-        for(s32 k = 1; k <= i; ++k)
+        for (s32 k = 1; k <= i; ++k)
         {
-            if (vv[k] > temp) 
+            if (vv[k] > temp)
             {
-                temp = vv[k]; 
+                temp = vv[k];
                 next = k;
             }
 
-            if (temp <= 0.0) 
+            if (temp <= 0.0)
             {
-                colors = i+1;
+                colors = i + 1;
                 break;
-            }            
+            }
         }
     }
 
     static u8 tag[CUBE_SIZE];
 
-    for(s32 k = 0; k < colors; ++k)
+    for (s32 k = 0; k < colors; ++k)
     {
         Mark(&cube[k], k, tag);
         s32 weight = Vol(&cube[k], vars.wt);
 
-        if (weight) 
+        if (weight)
         {
             outpal[k].r = Vol(&cube[k], vars.mr) / weight;
             outpal[k].g = Vol(&cube[k], vars.mg) / weight;
@@ -467,24 +467,10 @@ u8* gif_quantize2(const u32* buffer, s32 size, gif_color* outpal, s32 colors)
 
     u8* result = malloc(sizeof(u8) * size);
 
-    for(s32 i = 0; i < size; i++)
+    for (s32 i = 0; i < size; i++)
         result[i] = tag[Qadd[i]];
 
     free(Qadd);
 
     return result;
-}
-
-u8* gif_quantize(const u8* buffer, s32 size, const gif_color* palette, gif_color* outpal, s32 colors)
-{
-    u32* data = malloc(size * sizeof(u32));
-
-    for(s32 i = 0; i < size; i++)
-        data[i] = palette[buffer[i]].r | (palette[buffer[i]].g << 8) | (palette[buffer[i]].b << 16);
-
-    u8* res = gif_quantize2(data, size, outpal, colors);
-
-    free(data);
-
-    return res;
 }

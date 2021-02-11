@@ -408,6 +408,12 @@ typedef struct
 
 typedef struct
 {
+    u8 data[TIC80_WIDTH * TIC80_HEIGHT * TIC_PALETTE_BPP / BITS_IN_BYTE];
+} tic_screen;
+
+typedef struct
+{
+    tic_screen      screen;
     tic_tiles       tiles;
     tic_tiles       sprites;
     tic_map         map;
@@ -415,19 +421,7 @@ typedef struct
     tic_music       music;
     tic_flags       flags;
     tic_palettes    palette;
-
 } tic_bank;
-
-typedef struct
-{
-    u8 data[TIC80_WIDTH * TIC80_HEIGHT * TIC_PALETTE_BPP / BITS_IN_BYTE];
-} tic_screen;
-
-typedef struct
-{
-    tic_screen screen;
-    tic_palette palette;
-} tic_cover;
 
 typedef struct
 {
@@ -437,8 +431,7 @@ typedef struct
         tic_bank banks[TIC_BANKS];
     };
 
-    tic_code code;
-    tic_cover cover;
+    tic_code code;    
 
 } tic_cartridge;
 

@@ -22,6 +22,8 @@
 
 #include "cart.h"
 #include "tools.h"
+#include "ext/gif.h"
+
 #include <string.h>
 #include <stdlib.h>
 
@@ -45,7 +47,6 @@ typedef enum
     CHUNK_PATTERNS,     // 15
     CHUNK_CODE_ZIP,     // 16
     CHUNK_DEFAULT,      // 17
-    CHUNK_COVER,        // 18
 } ChunkType;
 
 typedef struct
@@ -97,21 +98,17 @@ void tic_cart_load(tic_cartridge* cart, const u8* buffer, s32 size)
             break;
         case CHUNK_COVER_DEP:
             {
+                // workaround to load deprecated cover section
                 gif_image* image = gif_read_data(buffer, chunk.size);
 
                 if (image)
                 {
-                    enum{Size = TIC80_WIDTH * TIC80_HEIGHT};
-
+                    tic_rgb* pal = cart->bank0.palette.scn.colors;
                     if(image->width == TIC80_WIDTH && image->height == TIC80_HEIGHT)
-                    {
-                        u8* buffer = gif_quantize(image->buffer, Size, image->palette, (gif_color*)&cart->cover.palette, TIC_PALETTE_SIZE);
-
-                        for(s32 i = 0; i < Size; i++)
-                            tic_tool_poke4(cart->cover.screen.data, i, buffer[i]);
-
-                        free(buffer);
-                    }
+                        for (s32 i = 0; i < TIC80_WIDTH * TIC80_HEIGHT; i++)
+                            for (s32 c = 0; c < TIC_PALETTE_SIZE; c++)
+                                if (memcmp(&pal[c], &image->palette[image->buffer[i]], sizeof(gif_color)) == 0)
+                                    tic_tool_poke4(cart->bank0.screen.data, i, c);
 
                     gif_close(image);
                 }
@@ -215,15 +212,6 @@ static u8* saveChunk(u8* buffer, ChunkType type, const void* from, s32 size, s32
     return saveFixedChunk(buffer, type, from, chunkSize, bank);
 }
 
-static bool emptyCover(const tic_cover* cover)
-{
-    for(const u8 *i = cover->palette.data, *end = i + sizeof(tic_palette); i < end; i++)
-        if(*i)
-            return false;
-
-    return true;
-}
-
 s32 tic_cart_save(const tic_cartridge* cart, u8* buffer)
 {
     u8* start = buffer;
@@ -275,19 +263,6 @@ s32 tic_cart_save(const tic_cartridge* cart, u8* buffer)
 
         if(!size)
             return 0;
-    }
-
-    // save zipped cover
-    if(!emptyCover(&cart->cover))
-    {
-        void* dst = malloc(sizeof(tic_cover));
-
-        s32 size = tic_tool_zip(dst, sizeof(tic_cover), &cart->cover, sizeof(tic_cover));
-
-        if(size)
-            buffer = saveFixedChunk(buffer, CHUNK_COVER, dst, size, 0);
-
-        free(dst);
     }
 
     #undef SAVE_CHUNK

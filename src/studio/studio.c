@@ -1414,42 +1414,6 @@ static void screen2buffer(u32* buffer, const u32* pixels, const tic_rect* rect)
     }
 }
 
-static void setCoverImage()
-{
-    tic_mem* tic = impl.studio.tic;
-
-    if(impl.mode == TIC_RUN_MODE)
-    {
-        enum {Pitch = TIC80_FULLWIDTH*sizeof(u32)};
-
-        tic_core_blit(tic, TIC80_PIXEL_COLOR_RGBA8888);
-
-        u32* buffer = malloc(TIC80_WIDTH * TIC80_HEIGHT * sizeof(u32));
-
-        if(buffer)
-        {
-            enum{OffsetLeft = (TIC80_FULLWIDTH-TIC80_WIDTH)/2, OffsetTop = (TIC80_FULLHEIGHT-TIC80_HEIGHT)/2};
-
-            tic_rect rect = {OffsetLeft, OffsetTop, TIC80_WIDTH, TIC80_HEIGHT};
-
-            screen2buffer(buffer, tic->screen, &rect);
-
-            {
-                enum{Size = TIC80_WIDTH * TIC80_HEIGHT};
-                tic_cartridge* cart = &impl.studio.tic->cart;
-                u8* cover = gif_quantize2(buffer, Size, (gif_color*)cart->cover.palette.colors, TIC_PALETTE_SIZE);
-
-                for(s32 i = 0; i < Size; i++)
-                    tic_tool_poke4(cart->cover.screen.data, i, cover[i]);
-            }
-
-            free(buffer);
-
-            showPopupMessage("cover image saved :)");
-        }
-    }
-}
-
 static void stopVideoRecord(const char* name)
 {
     if(impl.video.buffer)
@@ -1558,7 +1522,6 @@ static void processShortcuts()
         {
             if(alt) tic_sys_fullscreen();
         }
-        else if(keyWasPressedOnce(tic_key_f7)) setCoverImage();
         else if(keyWasPressedOnce(tic_key_f8)) takeScreenshot();
         else if(keyWasPressedOnce(tic_key_r))
         {
@@ -1595,7 +1558,6 @@ static void processShortcuts()
         else if(keyWasPressedOnce(tic_key_f3)) setStudioMode(TIC_MAP_MODE);
         else if(keyWasPressedOnce(tic_key_f4)) setStudioMode(TIC_SFX_MODE);
         else if(keyWasPressedOnce(tic_key_f5)) setStudioMode(TIC_MUSIC_MODE);
-        else if(keyWasPressedOnce(tic_key_f7)) setCoverImage();
         else if(keyWasPressedOnce(tic_key_f8)) takeScreenshot();
         else if(keyWasPressedOnce(tic_key_f9)) startVideoRecord();
         else if(keyWasPressedOnce(tic_key_f11)) tic_sys_fullscreen();

@@ -281,7 +281,6 @@ set(TIC80CORE_SRC
     ${TIC80CORE_DIR}/api/wren.c 
     ${TIC80CORE_DIR}/api/squirrel.c
     ${TIC80CORE_DIR}/ext/gif.c
-    ${TIC80CORE_DIR}/ext/cq.c
     ${TIC80CORE_DIR}/tic.c
     ${TIC80CORE_DIR}/cart.c
     ${TIC80CORE_DIR}/tools.c 
@@ -634,6 +633,7 @@ set(TIC80STUDIO_SRC
     ${TIC80LIB_DIR}/ext/md5.c
     ${TIC80LIB_DIR}/ext/gif.c
     ${TIC80LIB_DIR}/ext/history.c
+    ${TIC80LIB_DIR}/ext/cq.c
 )
 
 set(TIC80_OUTPUT tic80)
