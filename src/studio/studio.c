@@ -1951,15 +1951,17 @@ static void doCodeImport()
                     s32 y = atoi(sep + 1);
 
                     if(x == 0 && y == 0)
-                        runProject();
+                    {
+                        if(impl.mode != TIC_RUN_MODE)
+                            runProject();
+                    }
                     else
                     {
                         s32 offset = end - code.data + 1;
                         memcpy(impl.code->src, code.data + offset, sizeof(tic_code) - offset);
                         codeSetPos(impl.code, x - 1, y - 1);
 
-                        if(impl.mode == TIC_RUN_MODE)
-                            setStudioMode(TIC_CODE_MODE);
+                        setStudioMode(TIC_CODE_MODE);
                     }
                 }
             }
