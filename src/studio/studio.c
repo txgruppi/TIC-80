@@ -1961,7 +1961,8 @@ static void doCodeImport()
                         memcpy(impl.code->src, code.data + offset, sizeof(tic_code) - offset);
                         codeSetPos(impl.code, x - 1, y - 1);
 
-                        setStudioMode(TIC_CODE_MODE);
+                        if(impl.mode == TIC_RUN_MODE)
+                            setStudioMode(TIC_CODE_MODE);
                     }
                 }
             }
