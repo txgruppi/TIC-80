@@ -80,6 +80,10 @@ typedef struct
     bool crt;
 #endif
     const char *cmd;
+
+    const char *codeexport;
+    const char *codeimport;
+    s32 delay;
 } StartArgs;
 
 typedef enum

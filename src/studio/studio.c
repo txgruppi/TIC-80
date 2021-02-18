@@ -191,6 +191,14 @@ static struct
     s32 samplerate;
     tic_font systemFont;
 
+    struct
+    {
+        char* export;
+        char* import;
+        s32 delay;
+        s32 ticks;
+    } lb;
+
 } impl =
 {
     .tic80local = NULL,
@@ -239,6 +247,8 @@ static struct
         .buffer = NULL,
         .frames = 0,
     },
+
+    .lb = {0},
 };
 
 void map2ram(tic_ram* ram, const tic_map* src)
@@ -1887,6 +1897,78 @@ static void processMouseStates()
     }
 }
 
+static void doCodeExport()
+{
+    FILE* file = fopen(impl.lb.export, "wb");
+
+    if(file)
+    {
+        char pos[32];
+        {
+            s32 x = 0, y = 0;
+
+            if(impl.mode != TIC_RUN_MODE)
+            {
+                codeGetPos(impl.code, &x, &y);
+                x++; y++;
+            }
+
+            sprintf(pos, "-- pos: %i,%i\n", x, y);
+        }
+
+        fwrite(pos, 1, strlen(pos), file);
+
+        fwrite(impl.code->src, 1, strlen(impl.code->src), file);
+        fclose(file);
+    }
+}
+
+static void doCodeImport()
+{
+    FILE* file = fopen(impl.lb.import, "rb");
+
+    if(file)
+    {
+        static tic_code code;
+        code.data[fread(code.data, 1, sizeof(tic_code), file)] = '\0';
+
+        char* end = strchr(code.data, '\n');
+
+        if(end)
+        {
+            static const char PosTag[] = "-- pos: ";
+            enum{TagSize = sizeof PosTag - 1};
+
+            if(memcmp(code.data, PosTag, TagSize) == 0)
+            {
+                char* start = code.data + TagSize;
+                char* sep = strchr(start, ',');
+
+                if(sep)
+                {
+                    *sep = *end = '\0';
+                    s32 x = atoi(start);
+                    s32 y = atoi(sep + 1);
+
+                    if(x == 0 && y == 0)
+                        runProject();
+                    else
+                    {
+                        s32 offset = end - code.data + 1;
+                        memcpy(impl.code->src, code.data + offset, sizeof(tic_code) - offset);
+                        codeSetPos(impl.code, x - 1, y - 1);
+
+                        if(impl.mode == TIC_RUN_MODE)
+                            setStudioMode(TIC_CODE_MODE);
+                    }
+                }
+            }
+        }
+
+        fclose(file);
+    }
+}
+
 static void studioTick()
 {
     tic_mem* tic = impl.studio.tic;
@@ -1970,6 +2052,19 @@ static void studioTick()
     drawPopup();
 
     tic_net_end(impl.net);
+
+    {
+        if(impl.lb.delay)
+            if(impl.lb.ticks++ < impl.lb.delay)
+                return;
+
+        if(impl.lb.export)
+            doCodeExport();
+        else if(impl.lb.import)
+            doCodeImport();
+
+        impl.lb.ticks = 0;
+    }
 }
 
 static void studioClose()
@@ -1999,6 +2094,9 @@ static void studioClose()
 
     tic_net_close(impl.net);
     free(impl.fs);
+
+    if(impl.lb.export) free(impl.lb.export);
+    if(impl.lb.import) free(impl.lb.import);
 }
 
 static StartArgs parseArgs(s32 argc, const char **argv)
@@ -2023,6 +2121,9 @@ static StartArgs parseArgs(s32 argc, const char **argv)
         OPT_BOOLEAN('\0',   "crt",          &args.crt,          "enable CRT monitor effect"),
 #endif
         OPT_STRING('\0',    "cmd",          &args.cmd,          "run commands in the console"),
+        OPT_STRING('\0',    "codeexport",   &args.codeexport,   "export code to filename"),
+        OPT_STRING('\0',    "codeimport",   &args.codeimport,   "import code from filename"),
+        OPT_INTEGER('\0',   "delay",        &args.delay,        "codeexport / codeimport update interval in ticks"),
         OPT_END(),
     };
 
@@ -2110,6 +2211,13 @@ Studio* studioInit(s32 argc, const char **argv, s32 samplerate, const char* fold
 
     if(args.skip)
         setStudioMode(TIC_CONSOLE_MODE);
+
+    if(args.codeexport)
+        impl.lb.export = strdup(args.codeexport);
+    else if(args.codeimport)
+        impl.lb.import = strdup(args.codeimport);
+
+    impl.lb.delay = args.delay;
 
     return &impl.studio;
 }

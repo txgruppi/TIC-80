@@ -297,6 +297,21 @@ static void getCursorPosition(Code* code, s32* x, s32* y)
     }
 }
 
+void codeGetPos(Code* code, s32* x, s32* y)
+{
+    getCursorPosition(code, x, y);
+}
+
+static void setCursorPosition(Code* code, s32 x, s32 y);
+static void parseSyntaxColor(Code*);
+
+void codeSetPos(Code* code, s32 x, s32 y)
+{
+    setCursorPosition(code, x, y);
+    parseSyntaxColor(code);
+    code->cursor.delay = 0;
+}
+
 static s32 getLinesCount(Code* code)
 {
     char* text = code->src;
