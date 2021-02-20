@@ -195,6 +195,13 @@ static struct
     {
         char* export;
         char* import;
+
+        struct
+        {
+            tic_code code;
+            char postag[32];
+        } last;
+
         s32 delay;
         s32 ticks;
     } lb;
@@ -1899,27 +1906,32 @@ static void processMouseStates()
 
 static void doCodeExport()
 {
-    FILE* file = fopen(impl.lb.export, "wb");
-
-    if(file)
+    char pos[sizeof impl.lb.last.postag];
     {
-        char pos[32];
+        s32 x = 0, y = 0;
+
+        if(impl.mode != TIC_RUN_MODE)
         {
-            s32 x = 0, y = 0;
-
-            if(impl.mode != TIC_RUN_MODE)
-            {
-                codeGetPos(impl.code, &x, &y);
-                x++; y++;
-            }
-
-            sprintf(pos, "-- pos: %i,%i\n", x, y);
+            codeGetPos(impl.code, &x, &y);
+            x++; y++;
         }
 
-        fwrite(pos, 1, strlen(pos), file);
+        sprintf(pos, "-- pos: %i,%i\n", x, y);
+    }
 
-        fwrite(impl.code->src, 1, strlen(impl.code->src), file);
-        fclose(file);
+    if(strcmp(impl.lb.last.postag, pos) || strcmp(impl.lb.last.code.data, impl.code->src))
+    {
+        FILE* file = fopen(impl.lb.export, "wb");
+
+        if(file)
+        {
+            strcpy(impl.lb.last.postag, pos);
+            strcpy(impl.lb.last.code.data, impl.code->src);
+
+            fwrite(pos, 1, strlen(pos), file);
+            fwrite(impl.code->src, 1, strlen(impl.code->src), file);
+            fclose(file);
+        }        
     }
 }
 
