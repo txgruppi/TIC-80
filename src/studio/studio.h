@@ -84,6 +84,8 @@ typedef struct
     const char *codeexport;
     const char *codeimport;
     s32 delay;
+    s32 lowerlimit;
+    s32 upperlimit;
 } StartArgs;
 
 typedef enum
@@ -194,3 +196,5 @@ void tiles2ram(tic_ram* ram, const tic_tiles* src);
 #if defined(CRT_SHADER_SUPPORT)
 void switchCrtMonitor();
 #endif
+
+tic_color getCodeColor();

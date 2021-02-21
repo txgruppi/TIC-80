@@ -204,7 +204,13 @@ static struct
 
         s32 delay;
         s32 ticks;
-    } lb;
+
+        struct
+        {
+            s32 lower;
+            s32 upper;
+        } limit;
+    } lovebyte;
 
 } impl =
 {
@@ -255,7 +261,7 @@ static struct
         .frames = 0,
     },
 
-    .lb = {0},
+    .lovebyte = {0},
 };
 
 void map2ram(tic_ram* ram, const tic_map* src)
@@ -1906,7 +1912,7 @@ static void processMouseStates()
 
 static void doCodeExport()
 {
-    char pos[sizeof impl.lb.last.postag];
+    char pos[sizeof impl.lovebyte.last.postag];
     {
         s32 x = 0, y = 0;
 
@@ -1919,14 +1925,14 @@ static void doCodeExport()
         sprintf(pos, "-- pos: %i,%i\n", x, y);
     }
 
-    if(strcmp(impl.lb.last.postag, pos) || strcmp(impl.lb.last.code.data, impl.code->src))
+    if(strcmp(impl.lovebyte.last.postag, pos) || strcmp(impl.lovebyte.last.code.data, impl.code->src))
     {
-        FILE* file = fopen(impl.lb.export, "wb");
+        FILE* file = fopen(impl.lovebyte.export, "wb");
 
         if(file)
         {
-            strcpy(impl.lb.last.postag, pos);
-            strcpy(impl.lb.last.code.data, impl.code->src);
+            strcpy(impl.lovebyte.last.postag, pos);
+            strcpy(impl.lovebyte.last.code.data, impl.code->src);
 
             fwrite(pos, 1, strlen(pos), file);
             fwrite(impl.code->src, 1, strlen(impl.code->src), file);
@@ -1937,7 +1943,7 @@ static void doCodeExport()
 
 static void doCodeImport()
 {
-    FILE* file = fopen(impl.lb.import, "rb");
+    FILE* file = fopen(impl.lovebyte.import, "rb");
 
     if(file)
     {
@@ -2069,16 +2075,16 @@ static void studioTick()
     tic_net_end(impl.net);
 
     {
-        if(impl.lb.delay)
-            if(impl.lb.ticks++ < impl.lb.delay)
+        if(impl.lovebyte.delay)
+            if(impl.lovebyte.ticks++ < impl.lovebyte.delay)
                 return;
 
-        if(impl.lb.export)
+        if(impl.lovebyte.export)
             doCodeExport();
-        else if(impl.lb.import)
+        else if(impl.lovebyte.import)
             doCodeImport();
 
-        impl.lb.ticks = 0;
+        impl.lovebyte.ticks = 0;
     }
 }
 
@@ -2110,8 +2116,26 @@ static void studioClose()
     tic_net_close(impl.net);
     free(impl.fs);
 
-    if(impl.lb.export) free(impl.lb.export);
-    if(impl.lb.import) free(impl.lb.import);
+    if(impl.lovebyte.export) free(impl.lovebyte.export);
+    if(impl.lovebyte.import) free(impl.lovebyte.import);
+}
+
+tic_color getCodeColor()
+{   
+    if(impl.lovebyte.export || impl.lovebyte.import)
+    {
+        s32 size = strlen(impl.code->src) - impl.lovebyte.limit.lower;
+
+        if(size <= 0) return tic_color_light_green;
+
+        s32 delta = (impl.lovebyte.limit.upper - impl.lovebyte.limit.lower) / 2;
+        
+        if(size <= delta) return tic_color_yellow;
+        if(size <= delta*2) return tic_color_orange;
+        return tic_color_red;
+    } 
+
+    return tic_color_white;
 }
 
 static StartArgs parseArgs(s32 argc, const char **argv)
@@ -2122,7 +2146,7 @@ static StartArgs parseArgs(s32 argc, const char **argv)
         NULL,
     };
 
-    StartArgs args = {0};
+    StartArgs args = {0, .lowerlimit = 256, .upperlimit = 512};
 
     struct argparse_option options[] = 
     {
@@ -2136,9 +2160,12 @@ static StartArgs parseArgs(s32 argc, const char **argv)
         OPT_BOOLEAN('\0',   "crt",          &args.crt,          "enable CRT monitor effect"),
 #endif
         OPT_STRING('\0',    "cmd",          &args.cmd,          "run commands in the console"),
-        OPT_STRING('\0',    "codeexport",   &args.codeexport,   "export code to filename"),
-        OPT_STRING('\0',    "codeimport",   &args.codeimport,   "import code from filename"),
-        OPT_INTEGER('\0',   "delay",        &args.delay,        "codeexport / codeimport update interval in ticks"),
+        OPT_GROUP("LOVEBYTE options:\n"),
+        OPT_STRING('e',    "codeexport",    &args.codeexport,   "export code to filename"),
+        OPT_STRING('i',    "codeimport",    &args.codeimport,   "import code from filename"),
+        OPT_INTEGER('d',   "delay",         &args.delay,        "codeexport / codeimport update interval in ticks"),
+        OPT_INTEGER('l',   "lowerlimit",    &args.lowerlimit,   "lower limit for code size (256 by default)"),
+        OPT_INTEGER('u',   "upperlimit",    &args.upperlimit,   "upper limit for code size (512 by default)"),
         OPT_END(),
     };
 
@@ -2228,11 +2255,13 @@ Studio* studioInit(s32 argc, const char **argv, s32 samplerate, const char* fold
         setStudioMode(TIC_CONSOLE_MODE);
 
     if(args.codeexport)
-        impl.lb.export = strdup(args.codeexport);
+        impl.lovebyte.export = strdup(args.codeexport);
     else if(args.codeimport)
-        impl.lb.import = strdup(args.codeimport);
+        impl.lovebyte.import = strdup(args.codeimport);
 
-    impl.lb.delay = args.delay;
+    impl.lovebyte.delay = args.delay;
+    impl.lovebyte.limit.lower = args.lowerlimit;
+    impl.lovebyte.limit.upper = args.upperlimit;
 
     return &impl.studio;
 }
