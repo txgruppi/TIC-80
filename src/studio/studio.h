@@ -86,6 +86,7 @@ typedef struct
     s32 delay;
     s32 lowerlimit;
     s32 upperlimit;
+    s32 battletime;
 } StartArgs;
 
 typedef enum
@@ -197,4 +198,35 @@ void tiles2ram(tic_ram* ram, const tic_tiles* src);
 void switchCrtMonitor();
 #endif
 
-tic_color getCodeColor();
+typedef struct
+{
+    char* export;
+    char* import;
+
+    struct
+    {
+        tic_code code;
+        char postag[32];
+    } last;
+
+    s32 delay;
+    s32 ticks;
+
+    struct
+    {
+        s32 lower;
+        s32 upper;
+        s32 current;
+    } limit;
+
+    struct
+    {
+        s32 time;
+        s32 delta;
+        s32 deltatime;
+        bool started;
+    } battle;
+
+} Lovebyte;
+
+Lovebyte* getLovebyte();

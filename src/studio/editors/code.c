@@ -56,11 +56,45 @@ static void history(Code* code)
     history_add(code->history.state);
 }
 
+tic_color getCodeColor(Code* code)
+{
+    Lovebyte* lb = getLovebyte();
+
+    if(lb)
+    {
+        s32 size = strlen(code->src) - lb->limit.lower;
+
+        if(size <= 0) return tic_color_light_green;
+
+        s32 delta = (lb->limit.current - lb->limit.lower) / 2;
+        
+        if(size <= delta) return tic_color_yellow;
+        if(size <= delta*2) return tic_color_orange;
+        return tic_color_red;
+    } 
+
+    return tic_color_white;
+}
+
 static void drawStatus(Code* code)
 {
     enum {Height = TIC_FONT_HEIGHT + 1, StatusY = TIC80_HEIGHT - TIC_FONT_HEIGHT};
 
-    tic_api_rect(code->tic, 0, TIC80_HEIGHT - Height, TIC80_WIDTH, Height, getCodeColor());
+    tic_api_rect(code->tic, 0, TIC80_HEIGHT - Height, TIC80_WIDTH, Height, getCodeColor(code));
+
+    Lovebyte* lb = getLovebyte();
+
+    if(lb)
+    {
+        sprintf(code->statusSize, "%i/%i", (u32)strlen(code->src), lb->limit.current);
+
+        char buf[sizeof "00:00"];
+        s32 sec = lb->battle.time / TIC80_FRAMERATE;
+        sprintf(buf, "%02i:%02i", sec / 60, sec % 60);
+
+        tic_api_print(code->tic, buf, (TIC80_WIDTH - sizeof "00:00" * TIC_FONT_WIDTH) / 2, StatusY, getConfig()->theme.code.bg, true, 1, false);
+    }
+
     tic_api_print(code->tic, code->statusLine, 0, StatusY, getConfig()->theme.code.bg, true, 1, false);
     tic_api_print(code->tic, code->statusSize, TIC80_WIDTH - (s32)strlen(code->statusSize) * TIC_FONT_WIDTH, 
         StatusY, getConfig()->theme.code.bg, true, 1, false);
@@ -387,8 +421,15 @@ static void updateEditor(Code* code)
     code->cursor.delay = TEXT_CURSOR_DELAY;
 
     {
-        sprintf(code->statusLine, "line %i/%i col %i", line + 1, getLinesCount(code) + 1, column + 1);
-        sprintf(code->statusSize, "size %i", (u32)strlen(code->src));
+        if(getLovebyte())
+        {
+            sprintf(code->statusLine, "%i:%i", line + 1, column + 1);
+        }
+        else
+        {
+            sprintf(code->statusLine, "line %i/%i col %i", line + 1, getLinesCount(code) + 1, column + 1);
+            sprintf(code->statusSize, "size %i", (u32)strlen(code->src));
+        }
     }
 }
 
@@ -966,6 +1007,8 @@ static void newLine(Code* code)
 
         for(size_t i = 0; i < size; i++)
             inputSymbol(code, '\t');
+
+        updateEditor(code);
     }
 }
 

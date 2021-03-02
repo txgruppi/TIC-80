@@ -191,26 +191,7 @@ static struct
     s32 samplerate;
     tic_font systemFont;
 
-    struct
-    {
-        char* export;
-        char* import;
-
-        struct
-        {
-            tic_code code;
-            char postag[32];
-        } last;
-
-        s32 delay;
-        s32 ticks;
-
-        struct
-        {
-            s32 lower;
-            s32 upper;
-        } limit;
-    } lovebyte;
+    Lovebyte lovebyte;
 
 } impl =
 {
@@ -1616,6 +1597,7 @@ static void processShortcuts()
         else if(keyWasPressedOnce(tic_key_f8)) takeScreenshot();
         else if(keyWasPressedOnce(tic_key_f9)) startVideoRecord();
         else if(keyWasPressedOnce(tic_key_f11)) tic_sys_fullscreen();
+        else if(keyWasPressedOnce(tic_key_f12)) impl.lovebyte.battle.started = true;
         else if(keyWasPressedOnce(tic_key_escape))
         {
             Code* code = impl.code;
@@ -2075,6 +2057,22 @@ static void studioTick()
     tic_net_end(impl.net);
 
     {
+        if(impl.lovebyte.battle.started && impl.lovebyte.battle.time)
+        {
+            impl.lovebyte.battle.time--;
+            impl.lovebyte.battle.deltatime--;
+
+            if(impl.lovebyte.battle.deltatime == 0)
+            {
+                if(impl.lovebyte.limit.current > impl.lovebyte.limit.lower)
+                    impl.lovebyte.limit.current--;
+
+                impl.lovebyte.battle.deltatime = impl.lovebyte.battle.delta;
+            }
+        }
+        else
+            impl.lovebyte.limit.current = impl.lovebyte.limit.upper;
+
         if(impl.lovebyte.delay)
             if(impl.lovebyte.ticks++ < impl.lovebyte.delay)
                 return;
@@ -2120,22 +2118,9 @@ static void studioClose()
     if(impl.lovebyte.import) free(impl.lovebyte.import);
 }
 
-tic_color getCodeColor()
-{   
-    if(impl.lovebyte.export || impl.lovebyte.import)
-    {
-        s32 size = strlen(impl.code->src) - impl.lovebyte.limit.lower;
-
-        if(size <= 0) return tic_color_light_green;
-
-        s32 delta = (impl.lovebyte.limit.upper - impl.lovebyte.limit.lower) / 2;
-        
-        if(size <= delta) return tic_color_yellow;
-        if(size <= delta*2) return tic_color_orange;
-        return tic_color_red;
-    } 
-
-    return tic_color_white;
+Lovebyte* getLovebyte()
+{
+    return impl.lovebyte.export || impl.lovebyte.import ? &impl.lovebyte : NULL;
 }
 
 static StartArgs parseArgs(s32 argc, const char **argv)
@@ -2166,6 +2151,8 @@ static StartArgs parseArgs(s32 argc, const char **argv)
         OPT_INTEGER('d',   "delay",         &args.delay,        "codeexport / codeimport update interval in ticks"),
         OPT_INTEGER('l',   "lowerlimit",    &args.lowerlimit,   "lower limit for code size (256 by default)"),
         OPT_INTEGER('u',   "upperlimit",    &args.upperlimit,   "upper limit for code size (512 by default)"),
+        OPT_INTEGER('b',   "battletime",    &args.battletime,   "battletime in minutes"),
+        
         OPT_END(),
     };
 
@@ -2262,6 +2249,11 @@ Studio* studioInit(s32 argc, const char **argv, s32 samplerate, const char* fold
     impl.lovebyte.delay = args.delay;
     impl.lovebyte.limit.lower = args.lowerlimit;
     impl.lovebyte.limit.upper = args.upperlimit;
+    impl.lovebyte.battle.time = args.battletime * 60 * TIC80_FRAMERATE;
+
+    impl.lovebyte.battle.deltatime 
+        = impl.lovebyte.battle.delta 
+        = impl.lovebyte.battle.time / (impl.lovebyte.limit.upper - impl.lovebyte.limit.lower);
 
     return &impl.studio;
 }
