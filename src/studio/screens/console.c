@@ -21,6 +21,7 @@
 // SOFTWARE.
 
 #include "console.h"
+#include "start.h"
 #include "studio/fs.h"
 #include "studio/net.h"
 #include "studio/config.h"
@@ -589,8 +590,11 @@ static void* getDemoCart(Console* console, ScriptLang script, s32* size)
 
 static void setCartName(Console* console, const char* name, const char* path)
 {
-    strcpy(console->rom.name, name);
-    strcpy(console->rom.path, path);
+    if(console->rom.name != name)
+        strcpy(console->rom.name, name);
+
+    if(console->rom.path != path)
+        strcpy(console->rom.path, path);
 }
 
 static void onConsoleLoadDemoCommandConfirmed(Console* console, const char* param)
@@ -2900,7 +2904,7 @@ static void tick(Console* console)
 
 static inline bool isslash(char c)
 {
-    return c == '/' && c == '\\';
+    return c == '/' || c == '\\';
 }
 
 static bool cmdLoadCart(Console* console, const char* path)
@@ -2917,7 +2921,7 @@ static bool cmdLoadCart(Console* console, const char* path)
         {
             const char* ptr = path + strlen(path);
             while(ptr > path && !isslash(*ptr))--ptr;
-            cartName = ptr;
+            cartName = ptr + isslash(*ptr);
         }
 
         setCartName(console, cartName, path);
@@ -2985,9 +2989,16 @@ void initConsole(Console* console, tic_mem* tic, tic_fs* fs, tic_net* net, Confi
     memset(console->buffer, 0, CONSOLE_BUFFER_SIZE);
     memset(console->colorBuffer, TIC_COLOR_BG, CONSOLE_BUFFER_SIZE);
 
-    printFront(console, "\n " TIC_NAME_FULL "");
-    printBack(console, " " TIC_VERSION_LABEL "\n");
-    printBack(console, " " TIC_COPYRIGHT "\n");
+    {
+#define HEADER_LINE(label, color) {"\n " label, color},
+        static const struct { const char* label; u8 color; } Lines[] = { CONSOLE_HEADER(HEADER_LINE) };
+#undef HEADER_LINE
+
+        for (s32 i = 0; i < COUNT_OF(Lines); i++)
+            consolePrint(console, Lines[i].label, Lines[i].color);
+
+        printLine(console);
+    }
 
     if(args.cart)
         if(!cmdLoadCart(console, args.cart))

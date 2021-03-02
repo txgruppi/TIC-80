@@ -479,10 +479,10 @@ void tic80_libretro_update_mouse(tic80_mouse* mouse)
 
 	// Keep the mouse on the screen.
 	if (mouse->x >= TIC80_FULLWIDTH) {
-		mouse->x = TIC80_FULLWIDTH-1;
+		mouse->x = TIC80_FULLWIDTH - 1;
 	}
 	if (mouse->y >= TIC80_FULLHEIGHT) {
-		mouse->y = TIC80_FULLHEIGHT-1;
+		mouse->y = TIC80_FULLHEIGHT - 1;
 	}
 	if (mouse->x < 0) {
 		mouse->x = 0;
@@ -595,6 +595,7 @@ void tic80_libretro_update(tic80* game)
 	// Update the game state.
 	tic80_tick(game, &state->input);
 }
+
 /**
  * Draw the screen.
  */
@@ -843,24 +844,44 @@ RETRO_API bool retro_unserialize(const void *data, size_t size)
 }
 
 /**
- * libretro callback; Gets region of memory. Used for achievement tracking.
+ * libretro callback; Gets region of memory.
+ * 
+ * https://github.com/nesbox/TIC-80/wiki/ram
  */
 RETRO_API void *retro_get_memory_data(unsigned id)
 {
-	if (state == NULL || state->tic == NULL || id >= TIC_PERSISTENT_SIZE) {
+	if (state == NULL || state->tic == NULL) {
 		return NULL;
 	}
 
 	tic80_local* tic80 = (tic80_local*)state->tic;
-	return &(tic80->memory->ram.persistent.data[id]);
+	switch (id) {
+		case RETRO_MEMORY_SAVE_RAM:
+			return tic80->memory->ram.persistent.data;
+		case RETRO_MEMORY_SYSTEM_RAM:
+			return tic80->memory->ram.data;
+		case RETRO_MEMORY_VIDEO_RAM:
+			return tic80->memory->ram.vram.data;
+		default:
+			return NULL;
+	}
 }
 
 /**
- * libretro callback; Gets the size of memory. Used for achievement tracking.
+ * libretro callback; Gets the size of the given memory slot.
  */
 RETRO_API size_t retro_get_memory_size(unsigned id)
 {
-	return sizeof(u32);
+	switch (id) {
+		case RETRO_MEMORY_SAVE_RAM:
+			return TIC_PERSISTENT_SIZE;
+		case RETRO_MEMORY_SYSTEM_RAM:
+			return TIC_RAM_SIZE;
+		case RETRO_MEMORY_VIDEO_RAM:
+			return TIC_VRAM_SIZE;
+		default:
+			return 0;
+	}
 }
 
 /**

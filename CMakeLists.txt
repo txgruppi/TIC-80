@@ -6,6 +6,10 @@ set(VERSION_REVISION 0)
 set(VERSION_STATUS "-dev")
 string(TIMESTAMP VERSION_YEAR "%Y")
 
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(VERSION_BUILD " (debug)" )
+endif()
+
 find_package(Git)
 if(Git_FOUND)
     execute_process(
@@ -571,7 +575,7 @@ if (USE_CURL)
 
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "")
 
-    if(WIN32)
+    if(WIN32 AND NOT MINGW)
         set(CURL_STATIC_CRT ON CACHE BOOL "")
     endif()
 
@@ -608,6 +612,39 @@ if(USE_LIBUV)
 endif()
 
 ################################
+# PNG
+################################
+
+set(LIBPNG_DIR ${THIRDPARTY_DIR}/libpng)
+set(LIBPNG_SRC 
+    ${LIBPNG_DIR}/png.c
+    ${LIBPNG_DIR}/pngerror.c
+    ${LIBPNG_DIR}/pngget.c
+    ${LIBPNG_DIR}/pngmem.c
+    ${LIBPNG_DIR}/pngpread.c
+    ${LIBPNG_DIR}/pngread.c
+    ${LIBPNG_DIR}/pngrio.c
+    ${LIBPNG_DIR}/pngrtran.c
+    ${LIBPNG_DIR}/pngrutil.c
+    ${LIBPNG_DIR}/pngset.c
+    ${LIBPNG_DIR}/pngtrans.c
+    ${LIBPNG_DIR}/pngwio.c
+    ${LIBPNG_DIR}/pngwrite.c
+    ${LIBPNG_DIR}/pngwtran.c
+    ${LIBPNG_DIR}/pngwutil.c
+)
+
+configure_file(${LIBPNG_DIR}/scripts/pnglibconf.h.prebuilt ${LIBPNG_DIR}/pnglibconf.h)
+
+add_library(png STATIC ${LIBPNG_SRC})
+
+target_compile_definitions(png PRIVATE PNG_ARM_NEON_OPT=0)
+
+target_include_directories(png 
+    PRIVATE ${THIRDPARTY_DIR}/zlib
+    INTERFACE ${THIRDPARTY_DIR}/libpng)
+
+################################
 # TIC-80 studio
 ################################
 
@@ -631,9 +668,9 @@ set(TIC80STUDIO_SRC
     ${TIC80LIB_DIR}/studio/fs.c
     ${TIC80LIB_DIR}/studio/net.c
     ${TIC80LIB_DIR}/ext/md5.c
-    ${TIC80LIB_DIR}/ext/gif.c
     ${TIC80LIB_DIR}/ext/history.c
     ${TIC80LIB_DIR}/ext/cq.c
+    ${TIC80LIB_DIR}/ext/png.c
 )
 
 set(TIC80_OUTPUT tic80)
@@ -646,7 +683,7 @@ endif()
 
 target_include_directories(tic80studio PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 
-target_link_libraries(tic80studio tic80core zip wave_writer argparse)
+target_link_libraries(tic80studio tic80core zip wave_writer argparse png)
 
 if(USE_CURL)
     target_link_libraries(tic80studio libcurl)

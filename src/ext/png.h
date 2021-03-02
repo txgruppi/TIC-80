@@ -1,6 +1,6 @@
 // MIT License
 
-// Copyright (c) 2017 Vadim Grigoruk @nesbox // grigoruk@gmail.com
+// Copyright (c) 2021 Vadim Grigoruk @nesbox // grigoruk@gmail.com
 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -22,27 +22,23 @@
 
 #pragma once
 
-#include "studio/studio.h"
+#include <tic80_types.h>
 
-typedef struct Start Start;
-
-#define CONSOLE_HEADER(macro)                                   \
-    macro(TIC_NAME_FULL, tic_color_white)                       \
-    macro("version " TIC_VERSION_LABEL, tic_color_light_grey)   \
-    macro(TIC_COPYRIGHT, tic_color_grey)
-
-struct Start
+typedef struct
 {
-    tic_mem* tic;
+    u8* data;
+    u32 size;
+} png_buffer;
 
-    bool initialized;
+typedef struct
+{
+    s32 width;
+    s32 height;
+    u8* data;
+} png_img;
 
-    u32 phase;
-    u32 ticks;
-    bool play;
+png_img png_read(png_buffer buf);
+png_buffer png_write(png_img src);
 
-    void (*tick)(Start*);
-};
-
-void initStart(Start* start, tic_mem* tic);
-void freeStart(Start* start);
+png_buffer png_encode(png_buffer cover, png_buffer cart);
+png_buffer png_decode(png_buffer cover);

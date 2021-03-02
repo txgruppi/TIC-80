@@ -32,3 +32,8 @@
 #define OBJCOPY(...) memcpy(malloc(sizeof __VA_ARGS__), &__VA_ARGS__, sizeof __VA_ARGS__)
 #define DEF2STR2(x) #x
 #define DEF2STR(x) DEF2STR2(x)
+
+#define BIT_SET(a,b)    ((a) |= (1ULL<<(b)))
+#define BIT_CLEAR(a,b)  ((a) &= ~(1ULL<<(b)))
+#define BIT_FLIP(a,b)   ((a) ^= (1ULL<<(b)))
+#define BIT_CHECK(a,b)  (!!((a) & (1ULL<<(b))))
