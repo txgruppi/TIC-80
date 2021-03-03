@@ -1536,10 +1536,14 @@ static u32 getTime()
     return tic_sys_counter_get() * 1000 / tic_sys_freq_get();
 }
 
+static void hideBattleTime()
+{
+    impl.lovebyte.battle.hidetime = !impl.lovebyte.battle.hidetime;
+}
+
 static void startBattle()
 {
-    if(impl.lovebyte.battle.started == 0)
-        impl.lovebyte.battle.started = getTime();
+    impl.lovebyte.battle.started = getTime();
 }
 
 static void processShortcuts()
@@ -1607,6 +1611,7 @@ static void processShortcuts()
         else if(keyWasPressedOnce(tic_key_f7)) setCoverImage();
         else if(keyWasPressedOnce(tic_key_f8)) takeScreenshot();
         else if(keyWasPressedOnce(tic_key_f9)) startVideoRecord();
+        else if(keyWasPressedOnce(tic_key_f10)) hideBattleTime();
         else if(keyWasPressedOnce(tic_key_f11)) tic_sys_fullscreen();
         else if(keyWasPressedOnce(tic_key_f12)) startBattle();
         else if(keyWasPressedOnce(tic_key_escape))
@@ -1920,7 +1925,7 @@ static void doCodeExport()
 
     if(strcmp(impl.lovebyte.last.postag, pos) || strcmp(impl.lovebyte.last.code.data, impl.code->src))
     {
-        FILE* file = fopen(impl.lovebyte.export, "wb");
+        FILE* file = fopen(impl.lovebyte.exp, "wb");
 
         if(file)
         {
@@ -1936,7 +1941,7 @@ static void doCodeExport()
 
 static void doCodeImport()
 {
-    FILE* file = fopen(impl.lovebyte.import, "rb");
+    FILE* file = fopen(impl.lovebyte.imp, "rb");
 
     if(file)
     {
@@ -1987,8 +1992,41 @@ static void studioTick()
 {
     tic_mem* tic = impl.studio.tic;
 
+    {
+        Lovebyte* lb = &impl.lovebyte;
+        if(lb->battle.started)
+        {
+            u32 passed = getTime() - lb->battle.started;
+            lb->battle.left = lb->battle.time - passed;
+
+            if(lb->battle.left > 0)
+            {
+                s32 delta = lb->battle.time / (lb->limit.upper - lb->limit.lower);
+                lb->limit.current = lb->limit.upper - passed / delta;
+            }
+            else
+            {
+                lb->battle.left = 0;
+                lb->limit.current = lb->limit.lower;
+            }
+        }
+
+        if(lb->delay)
+            if(lb->ticks++ < lb->delay)
+                return;
+
+        if(lb->exp)
+            doCodeExport();
+        else if(lb->imp)
+            doCodeImport();
+
+        lb->ticks = 0;
+    }
+
     tic_net_start(impl.net);
+
     processShortcuts();
+
     processMouseStates();
     processGamepadMapping();
 
@@ -2066,35 +2104,6 @@ static void studioTick()
     drawPopup();
 
     tic_net_end(impl.net);
-
-    {
-        if(impl.lovebyte.battle.started)
-        {
-            u32 delta = getTime() - impl.lovebyte.battle.started;
-            impl.lovebyte.battle.now = impl.lovebyte.battle.time - delta;
-
-            if(impl.lovebyte.battle.now > 0)
-            {
-                impl.lovebyte.limit.current = impl.lovebyte.limit.upper - (delta - delta % 1000) / impl.lovebyte.battle.delta;
-            }
-            else
-            {
-                impl.lovebyte.battle.now = 0;
-                impl.lovebyte.limit.current = impl.lovebyte.limit.lower;
-            }
-        }
-
-        if(impl.lovebyte.delay)
-            if(impl.lovebyte.ticks++ < impl.lovebyte.delay)
-                return;
-
-        if(impl.lovebyte.export)
-            doCodeExport();
-        else if(impl.lovebyte.import)
-            doCodeImport();
-
-        impl.lovebyte.ticks = 0;
-    }
 }
 
 static void studioClose()
@@ -2125,13 +2134,13 @@ static void studioClose()
     tic_net_close(impl.net);
     free(impl.fs);
 
-    if(impl.lovebyte.export) free(impl.lovebyte.export);
-    if(impl.lovebyte.import) free(impl.lovebyte.import);
+    if(impl.lovebyte.exp) free(impl.lovebyte.exp);
+    if(impl.lovebyte.imp) free(impl.lovebyte.imp);
 }
 
 Lovebyte* getLovebyte()
 {
-    return impl.lovebyte.export || impl.lovebyte.import ? &impl.lovebyte : NULL;
+    return impl.lovebyte.exp || impl.lovebyte.imp ? &impl.lovebyte : NULL;
 }
 
 static StartArgs parseArgs(s32 argc, const char **argv)
@@ -2249,16 +2258,10 @@ Studio* studioInit(s32 argc, const char **argv, s32 samplerate, const char* fold
     impl.studio.exit = exitStudio;
     impl.studio.config = getConfig;
 
-    if(args.skip)
-    {
-        impl.console->tick(impl.console);
-        setStudioMode(TIC_CODE_MODE);
-    }
-
     if(args.codeexport)
-        impl.lovebyte.export = strdup(args.codeexport);
+        impl.lovebyte.exp = strdup(args.codeexport);
     else if(args.codeimport)
-        impl.lovebyte.import = strdup(args.codeimport);
+        impl.lovebyte.imp = strdup(args.codeimport);
 
     impl.lovebyte.delay = args.delay;
     impl.lovebyte.limit.lower = args.lowerlimit;
@@ -2267,12 +2270,15 @@ Studio* studioInit(s32 argc, const char **argv, s32 samplerate, const char* fold
         = impl.lovebyte.limit.upper 
         = args.upperlimit;
 
-    impl.lovebyte.battle.now 
+    impl.lovebyte.battle.left 
         = impl.lovebyte.battle.time 
         = args.battletime * 60 * 1000;
 
-    impl.lovebyte.battle.delta 
-        = impl.lovebyte.battle.time / (impl.lovebyte.limit.upper - impl.lovebyte.limit.lower);
+    if(args.skip)
+    {
+        impl.console->tick(impl.console);
+        gotoCode();
+    }
 
     return &impl.studio;
 }

@@ -200,8 +200,8 @@ void switchCrtMonitor();
 
 typedef struct
 {
-    char* export;
-    char* import;
+    char* exp;
+    char* imp;
 
     struct
     {
@@ -223,8 +223,9 @@ typedef struct
     {
         s32 started;
         s32 time;
-        s32 now;
-        s32 delta;
+        s32 left;
+
+        bool hidetime;
     } battle;
 
 } Lovebyte;
