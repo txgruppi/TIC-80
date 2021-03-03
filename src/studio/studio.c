@@ -2250,7 +2250,10 @@ Studio* studioInit(s32 argc, const char **argv, s32 samplerate, const char* fold
     impl.studio.config = getConfig;
 
     if(args.skip)
-        setStudioMode(TIC_CONSOLE_MODE);
+    {
+        impl.console->tick(impl.console);
+        setStudioMode(TIC_CODE_MODE);
+    }
 
     if(args.codeexport)
         impl.lovebyte.export = strdup(args.codeexport);
