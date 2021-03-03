@@ -1531,6 +1531,17 @@ void switchCrtMonitor()
 }
 #endif
 
+static u32 getTime()
+{
+    return tic_sys_counter_get() * 1000 / tic_sys_freq_get();
+}
+
+static void startBattle()
+{
+    if(impl.lovebyte.battle.started == 0)
+        impl.lovebyte.battle.started = getTime();
+}
+
 static void processShortcuts()
 {
     tic_mem* tic = impl.studio.tic;
@@ -1597,7 +1608,7 @@ static void processShortcuts()
         else if(keyWasPressedOnce(tic_key_f8)) takeScreenshot();
         else if(keyWasPressedOnce(tic_key_f9)) startVideoRecord();
         else if(keyWasPressedOnce(tic_key_f11)) tic_sys_fullscreen();
-        else if(keyWasPressedOnce(tic_key_f12)) impl.lovebyte.battle.started = true;
+        else if(keyWasPressedOnce(tic_key_f12)) startBattle();
         else if(keyWasPressedOnce(tic_key_escape))
         {
             Code* code = impl.code;
@@ -2057,21 +2068,21 @@ static void studioTick()
     tic_net_end(impl.net);
 
     {
-        if(impl.lovebyte.battle.started && impl.lovebyte.battle.time)
+        if(impl.lovebyte.battle.started)
         {
-            impl.lovebyte.battle.time--;
-            impl.lovebyte.battle.deltatime--;
+            u32 delta = getTime() - impl.lovebyte.battle.started;
+            impl.lovebyte.battle.now = impl.lovebyte.battle.time - delta;
 
-            if(impl.lovebyte.battle.deltatime == 0)
+            if(impl.lovebyte.battle.now > 0)
             {
-                if(impl.lovebyte.limit.current > impl.lovebyte.limit.lower)
-                    impl.lovebyte.limit.current--;
-
-                impl.lovebyte.battle.deltatime = impl.lovebyte.battle.delta;
+                impl.lovebyte.limit.current = impl.lovebyte.limit.upper - (delta - delta % 1000) / impl.lovebyte.battle.delta;
+            }
+            else
+            {
+                impl.lovebyte.battle.now = 0;
+                impl.lovebyte.limit.current = impl.lovebyte.limit.lower;
             }
         }
-        else
-            impl.lovebyte.limit.current = impl.lovebyte.limit.upper;
 
         if(impl.lovebyte.delay)
             if(impl.lovebyte.ticks++ < impl.lovebyte.delay)
@@ -2248,11 +2259,16 @@ Studio* studioInit(s32 argc, const char **argv, s32 samplerate, const char* fold
 
     impl.lovebyte.delay = args.delay;
     impl.lovebyte.limit.lower = args.lowerlimit;
-    impl.lovebyte.limit.upper = args.upperlimit;
-    impl.lovebyte.battle.time = args.battletime * 60 * TIC80_FRAMERATE;
 
-    impl.lovebyte.battle.deltatime 
-        = impl.lovebyte.battle.delta 
+    impl.lovebyte.limit.current
+        = impl.lovebyte.limit.upper 
+        = args.upperlimit;
+
+    impl.lovebyte.battle.now 
+        = impl.lovebyte.battle.time 
+        = args.battletime * 60 * 1000;
+
+    impl.lovebyte.battle.delta 
         = impl.lovebyte.battle.time / (impl.lovebyte.limit.upper - impl.lovebyte.limit.lower);
 
     return &impl.studio;

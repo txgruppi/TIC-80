@@ -89,7 +89,7 @@ static void drawStatus(Code* code)
         sprintf(code->statusSize, "%i/%i", (u32)strlen(code->src), lb->limit.current);
 
         char buf[sizeof "00:00"];
-        s32 sec = lb->battle.time / TIC80_FRAMERATE;
+        s32 sec = lb->battle.now / 1000;
         sprintf(buf, "%02i:%02i", sec / 60, sec % 60);
 
         tic_api_print(code->tic, buf, (TIC80_WIDTH - sizeof "00:00" * TIC_FONT_WIDTH) / 2, StatusY, getConfig()->theme.code.bg, true, 1, false);

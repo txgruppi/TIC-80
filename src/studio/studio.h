@@ -221,10 +221,10 @@ typedef struct
 
     struct
     {
+        s32 started;
         s32 time;
+        s32 now;
         s32 delta;
-        s32 deltatime;
-        bool started;
     } battle;
 
 } Lovebyte;
