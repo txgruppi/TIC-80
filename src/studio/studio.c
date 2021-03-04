@@ -1992,37 +1992,6 @@ static void studioTick()
 {
     tic_mem* tic = impl.studio.tic;
 
-    {
-        Lovebyte* lb = &impl.lovebyte;
-        if(lb->battle.started)
-        {
-            u32 passed = getTime() - lb->battle.started;
-            lb->battle.left = lb->battle.time - passed;
-
-            if(lb->battle.left > 0)
-            {
-                s32 delta = lb->battle.time / (lb->limit.upper - lb->limit.lower);
-                lb->limit.current = lb->limit.upper - passed / delta;
-            }
-            else
-            {
-                lb->battle.left = 0;
-                lb->limit.current = lb->limit.lower;
-            }
-        }
-
-        if(lb->delay)
-            if(lb->ticks++ < lb->delay)
-                return;
-
-        if(lb->exp)
-            doCodeExport();
-        else if(lb->imp)
-            doCodeImport();
-
-        lb->ticks = 0;
-    }
-
     tic_net_start(impl.net);
 
     processShortcuts();
@@ -2104,6 +2073,37 @@ static void studioTick()
     drawPopup();
 
     tic_net_end(impl.net);
+
+    {
+        Lovebyte* lb = &impl.lovebyte;
+        if(lb->battle.started)
+        {
+            u32 passed = getTime() - lb->battle.started;
+            lb->battle.left = lb->battle.time - passed;
+
+            if(lb->battle.left > 0)
+            {
+                s32 delta = lb->battle.time / (lb->limit.upper - lb->limit.lower);
+                lb->limit.current = lb->limit.upper - passed / delta;
+            }
+            else
+            {
+                lb->battle.left = 0;
+                lb->limit.current = lb->limit.lower;
+            }
+        }
+
+        if(lb->delay)
+            if(lb->ticks++ < lb->delay)
+                return;
+
+        if(lb->exp)
+            doCodeExport();
+        else if(lb->imp)
+            doCodeImport();
+
+        lb->ticks = 0;
+    }
 }
 
 static void studioClose()
